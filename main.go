@@ -22,6 +22,38 @@ type Shadow struct {
   Version int
 }
 
+func initEnv() (error) {
+  home, err := os.UserHomeDir()
+  if err != nil {
+    return err
+  }
+  err = godotenv.Load(fmt.Sprintf("%s/.env", home))
+  return err
+}
+
+func initLog() {
+  logPath := os.Getenv("LOG_FILE_PATH")
+  f, err := os.OpenFile(logPath, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+  if err != nil {
+    log.Fatalf("error opening file: %v", err)
+  }
+  defer f.Close()
+
+  log.SetOutput(f)
+}
+
+func initThing() (*device.Thing, error) {
+  thingName := device.ThingName(os.Getenv("THING_NAME"))
+  endpoint := os.Getenv("ENDPOINT")
+  keyPair := device.KeyPair{
+   PrivateKeyPath: os.Getenv("PRIVATE_KEY_PATH"),
+   CertificatePath: os.Getenv("CERT_PATH"),
+   CACertificatePath: os.Getenv("ROOT_CA_PATH"),
+  }
+  
+  return device.NewThing(keyPair, endpoint, thingName)
+}
+
 func readTemp() int {
   // Make sure periph is initialized.
   if _, err := host.Init(); err != nil {
@@ -52,44 +84,30 @@ func readTemp() int {
 }
 
 func main() {
-  home, err := os.UserHomeDir()
-  if err != nil {
-    panic(err)
-  }
-  err = godotenv.Load(fmt.Sprintf("%s/.env", home))
-  if err != nil {
-    panic(err)
-  }
-
-  f, err := os.OpenFile(os.Getenv("LOG_FILE_PATH"), os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
-  if err != nil {
-    log.Fatalf("error opening file: %v", err)
-  }
-  defer f.Close()
-
-  log.SetOutput(f)
-  
-  thingName := device.ThingName(os.Getenv("THING_NAME"))
-  endpoint := os.Getenv("ENDPOINT")
-  keyPair := device.KeyPair{
-   PrivateKeyPath: os.Getenv("PRIVATE_KEY_PATH"),
-   CertificatePath: os.Getenv("CERT_PATH"),
-   CACertificatePath: os.Getenv("ROOT_CA_PATH"),
-  }
-
-  thing, err := device.NewThing(keyPair, endpoint, thingName)
+  err := initEnv()
   if err != nil {
     panic(err)
   }
   
+  initLog()
+
+  // Initilize a new Thing
+  thing, err := initThing()
+  if err != nil {
+    panic(err)
+  }
+  
+  // Subscribe to shadow 
   shadowChan, err := thing.SubscribeForThingShadowChanges()
   if err != nil {
     panic(err)
   }
 
+  // Read temperature from sensor
   data := readTemp()
   shadow := fmt.Sprintf(`{"state": {"reported": {"temp": %d}}}`, data)
   
+  // Update thing shadow
   err = thing.UpdateThingShadow(device.Shadow(shadow))
   if err != nil {
     panic(err)
