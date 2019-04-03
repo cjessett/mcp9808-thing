@@ -14,6 +14,9 @@ ROOT_CA_PATH=<path to root ca>
 LOG_FILE_PATH=<path to log file>
 ```
 
+### Wire up the MCP9808
+![fritzing](rpi-temp.jpg)
+
 ## Building
 
 For a Raspberry Pi Zero
