@@ -5,7 +5,7 @@ import (
   "log"
   "fmt"
   "encoding/json"
-  
+
   "github.com/joho/godotenv"
   "github.com/kuzemkon/aws-iot-device-sdk-go/device"
   "periph.io/x/periph/host"
@@ -22,7 +22,7 @@ type Shadow struct {
   Version int
 }
 
-func initEnv() (error) {
+func initEnv() error {
   home, err := os.UserHomeDir()
   if err != nil {
     return err
@@ -50,7 +50,7 @@ func initThing() (*device.Thing, error) {
    CertificatePath: os.Getenv("CERT_PATH"),
    CACertificatePath: os.Getenv("ROOT_CA_PATH"),
   }
-  
+
   return device.NewThing(keyPair, endpoint, thingName)
 }
 
@@ -72,14 +72,14 @@ func readTemp() int {
   if err != nil {
       log.Fatalln(err)
   }
-  
+
   // Read values from sensor.
   measurement, err := sensor.SenseTemp()
 
   if err != nil {
       log.Fatalln(err)
   }
-  
+
   return int(measurement.Fahrenheit())
 }
 
@@ -88,7 +88,7 @@ func main() {
   if err != nil {
     panic(err)
   }
-  
+
   initLog()
 
   // Initilize a new Thing
@@ -96,8 +96,8 @@ func main() {
   if err != nil {
     panic(err)
   }
-  
-  // Subscribe to shadow 
+
+  // Subscribe to shadow
   shadowChan, err := thing.SubscribeForThingShadowChanges()
   if err != nil {
     panic(err)
@@ -106,25 +106,25 @@ func main() {
   // Read temperature from sensor
   data := readTemp()
   shadow := fmt.Sprintf(`{"state": {"reported": {"temp": %d}}}`, data)
-  
+
   // Update thing shadow
   err = thing.UpdateThingShadow(device.Shadow(shadow))
   if err != nil {
     panic(err)
   }
-  
+
   updatedShadow, ok := <-shadowChan
   if !ok {
     panic("Failed to read from shadow channel")
   }
-  
+
   unmarshaledUpdatedShadow := &Shadow{}
 
   err = json.Unmarshal(updatedShadow, unmarshaledUpdatedShadow)
   if err != nil {
     panic(err)
   }
-  
-  log.Printf("Temp: %v Version: %v", unmarshaledUpdatedShadow.State.Reported.Temp, unmarshaledUpdatedShadow.Version)
+
+	log.Printf("Temp: %v Version: %v", unmarshaledUpdatedShadow.State.Reported.Temp, unmarshaledUpdatedShadow.Version)
 }
 
