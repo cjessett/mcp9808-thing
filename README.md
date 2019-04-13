@@ -21,10 +21,10 @@ LOG_FILE_PATH=<path to log file>
 
 For a Raspberry Pi Zero
 ```
-env GOOS=linux GOARCH=arm GOARM=6 go build main.go
+make
 ```
 
 ## Execute the script
 ```
-./main
+./mcp9808-thing
 ```
