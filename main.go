@@ -2,12 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
-	"io"
 	"log"
 	"os"
+	"io"
 
-	"github.com/joho/godotenv"
 	"github.com/kuzemkon/aws-iot-device-sdk-go/device"
 	"periph.io/x/periph/conn/i2c/i2creg"
 	"periph.io/x/periph/experimental/devices/mcp9808"
@@ -21,27 +21,6 @@ type Shadow struct {
 		} `json:"reported"`
 	} `json:"state"`
 	Version int
-}
-
-func initEnv() error {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return err
-	}
-	err = godotenv.Load(fmt.Sprintf("%s/.env", home))
-	return err
-}
-
-func initThing() (*device.Thing, error) {
-	thingName := device.ThingName(os.Getenv("THING_NAME"))
-	endpoint := os.Getenv("ENDPOINT")
-	keyPair := device.KeyPair{
-		PrivateKeyPath:    os.Getenv("PRIVATE_KEY_PATH"),
-		CertificatePath:   os.Getenv("CERT_PATH"),
-		CACertificatePath: os.Getenv("ROOT_CA_PATH"),
-	}
-
-	return device.NewThing(keyPair, endpoint, thingName)
 }
 
 func readTemp() int {
@@ -74,23 +53,39 @@ func readTemp() int {
 }
 
 func main() {
-	err := initEnv()
-	if err != nil {
-		panic(err)
+	var (
+		thingName  = flag.String("thing", "", "Set this to the AWS IoT thing name")
+		endpoint   = flag.String("endpoint", "", "Set this to the AWS IoT endpoint")
+		privateKey = flag.String("privatekey", "", "This must be a full path to the AWS IoT thing private key .pem.key file")
+		cert       = flag.String("cert", "", "This must be a full path to the AWS IoT thing cert .pem.crt file")
+		rootCA     = flag.String("rootca", "", "This must be a full path to the AWS IoT thing root-CA .crt file")
+		logFile    = flag.String("logfile", "", "Set this to the full path for the log file")
+	)
+	flag.Parse()	
+	
+	if *thingName == "" || *endpoint == "" || *privateKey == "" || *cert == "" || *rootCA == "" || *logFile == "" {
+		flag.PrintDefaults()
+		panic("missing flag")
 	}
 
-	logPath := os.Getenv("LOG_FILE_PATH")
-	f, err := os.OpenFile(logPath, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	// Initilize logging
+	f, err := os.OpenFile(*logFile, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening file: %v", err)
 	}
 	defer f.Close()
-
+	
 	mw := io.MultiWriter(os.Stdout, f)
 	log.SetOutput(mw)
 
 	// Initilize a new Thing
-	thing, err := initThing()
+	keyPair := device.KeyPair{
+		PrivateKeyPath:    *privateKey,
+		CertificatePath:   *cert,
+		CACertificatePath: *rootCA,
+	}
+
+	thing, err := device.NewThing(keyPair, *endpoint, device.ThingName(*thingName))
 	if err != nil {
 		panic(err)
 	}
